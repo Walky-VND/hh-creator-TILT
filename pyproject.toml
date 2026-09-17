@@ -7,7 +7,8 @@ requires-python = ">=3.10"
 dependencies = [
     "deuces>=0.2.1",
     "pyqt5",
-    "pyqt5-qt5==5.15.2",
+    "pyqt5-qt5==5.15.2; sys_platform != 'darwin'",
+    "pyqt5-qt5>=5.15.11; sys_platform == 'darwin'",  # arm64 wheels for Apple Silicon
 ]
 
 [project.urls]
