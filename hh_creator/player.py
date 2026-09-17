@@ -248,10 +248,31 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
             adjust = True
 
         if adjust:
-            new_amount = amount - hand_history.current_player_amount_to_call()
+            # The widget expresses a raise as the player's TOTAL bet on the
+            # street ("raise to X"). The engine wants the increment above the
+            # call, so subtract both what the player already has in front of
+            # them this street and the amount still to call. Forgetting the
+            # street bet made a 3-bettor's shove exceed their stack (crash).
+            new_amount = (
+                amount
+                - hand_history.current_player_street_bet()
+                - hand_history.current_player_amount_to_call()
+            )
             log.debug(f"Requested bet {amount}, transforming it to raise {new_amount}")
             amount = new_amount
-        hand_history.add_action(action_type, amount)
+        try:
+            hand_history.add_action(action_type, amount)
+        except hh.HandHistoryException as e:
+            # Never let an engine refusal escape a Qt slot: PyQt aborts the
+            # whole process on an uncaught exception. Tell the user instead.
+            log.exception("Action refused by the hand history engine")
+            QtWidgets.QMessageBox.warning(
+                None,
+                "Action impossible",
+                f"Cette action a été refusée :\n{e}\n\n"
+                "Essayez un autre montant ou annulez la dernière action.",
+            )
+            return
         self.scene().parent().update_buttons()
         self.scene().request_action(hand_history)
 

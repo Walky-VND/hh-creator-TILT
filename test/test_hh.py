@@ -52,3 +52,31 @@ def test_allin_ante():
     )
     adjusted = min_bet - hh.current_player_amount_to_call()
     hh.add_action(ActionType.RAISE, adjusted)
+
+
+def test_shove_after_3bet_over_4bet():
+    """Regression: a player who 3-bet and then shoves over a 4-bet must be
+    able to move their whole stack in. The UI expresses the shove as a total
+    bet on the street (stack + street bet); the conversion to the engine's
+    raise increment must subtract both the street bet and the amount to call.
+    """
+    hh = HandHistory([Decimal(200)] * 6, small_blind=Decimal(1), big_blind=Decimal(2))
+    hh.post_blinds_and_antes()
+    hh.add_action(ActionType.FOLD)  # LJ
+    hh.add_action(ActionType.RAISE, Decimal(3))  # HJ opens to 5
+    hh.add_action(ActionType.RAISE, Decimal(13))  # CO 3-bets to 18
+    hh.add_action(ActionType.RAISE, Decimal(22))  # BTN 4-bets to 40
+    hh.add_action(ActionType.FOLD)  # SB
+    hh.add_action(ActionType.FOLD)  # BB
+    hh.add_action(ActionType.FOLD)  # HJ
+    co = hh.current_player
+    assert co.position == Position.CO
+    total_on_street = co.stack + hh.current_player_street_bet()  # what the widget sends
+    increment = (
+        total_on_street
+        - hh.current_player_street_bet()
+        - hh.current_player_amount_to_call()
+    )
+    hh.add_action(ActionType.RAISE, increment)
+    assert co.stack == 0
+    assert co.street_bet(Street.PRE_FLOP) == Decimal(200)
