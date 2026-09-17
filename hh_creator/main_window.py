@@ -187,6 +187,8 @@ class MainWindow(QtWidgets.QMainWindow, AutoUI):
             )
 
             self.scene.set_n_cards(dialog.get_n_cards())
+            self.scene.ko_enabled = dialog._get_checkbox("KO").isChecked()
+            self.scene.set_all_kos(dialog.get_field_value("KO"))
             self.scene.currency = dialog.get_field_value("Currency")
             pos = dialog.get_field_value("CurrencyPosition")
             self.scene.currency_is_after = pos == "après"
@@ -542,6 +544,8 @@ class MainWindow(QtWidgets.QMainWindow, AutoUI):
         hh_dict["board"] = [c.deuces_format() for c in self.scene.board]
         hh_dict["currency"] = self.scene.currency
         hh_dict["currency_is_after"] = self.scene.currency_is_after
+        hh_dict["ko_enabled"] = self.scene.ko_enabled
+        hh_dict["kos"] = self.scene.kos()
         with open(filename, "w", encoding="utf-8") as fp:
             json.dump(hh_dict, fp, cls=HHJSONEncoder, indent=2)
 

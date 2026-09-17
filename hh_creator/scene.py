@@ -31,6 +31,7 @@ class TableScene(QtWidgets.QGraphicsScene):
 
         self._currency = ""
         self._currency_is_after = True
+        self._ko_enabled = False
 
         self._get_highlight_effect()
         self._n_seats = None
@@ -194,6 +195,7 @@ class TableScene(QtWidgets.QGraphicsScene):
 
             player.setVisible(True)
             player.setPos(x, y)
+            player.update_ko_anchor()
 
             if player.scene() is not self:
                 self.addItem(player)
@@ -302,6 +304,24 @@ class TableScene(QtWidgets.QGraphicsScene):
         for p in self.player_items:
             p.stack_item.stack = value
 
+    @property
+    def ko_enabled(self) -> bool:
+        return self._ko_enabled
+
+    @ko_enabled.setter
+    def ko_enabled(self, value: bool) -> None:
+        self._ko_enabled = bool(value)
+        for p in self.player_items:
+            p.ko_item.setVisible(self._ko_enabled)
+
+    def set_all_kos(self, value) -> None:
+        for p in self.player_items:
+            p.ko_item.ko = value
+
+    def kos(self):
+        """KO values of active players, in engine order (SB first)."""
+        return [p.ko_item.ko for p in self.get_active_players_after_button()]
+
     def set_n_cards(self, value) -> None:
         for p in self.player_items:
             p.n_cards = value
@@ -375,6 +395,12 @@ class TableScene(QtWidgets.QGraphicsScene):
 
         self._currency = hh_dict["currency"]
         self._currency_is_after = hh_dict["currency_is_after"]
+        # KO values are optional: files written before the feature have none
+        self.ko_enabled = hh_dict.get("ko_enabled", False)
+        for player, ko in zip(
+            self.get_active_players_after_button(), hh_dict.get("kos", [])
+        ):
+            player.ko_item.ko = ko
         self.hide_inactive_players()
         self._update_currency()
 

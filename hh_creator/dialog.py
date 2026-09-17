@@ -34,6 +34,7 @@ class NewHandDialog(QtWidgets.QDialog, AutoUI):
         "Variant": Field(str, False, "comboBox", "CurrentText"),
         "CurrencyPosition": Field(str, False, "comboBox", "CurrentText"),
         "Decimals": Field(int, True),
+        "KO": Field(Decimal, True),
     }
 
     N_CARDS = {"Texas": 2, "Omaha": 4}
@@ -172,8 +173,10 @@ class NewHandDialog(QtWidgets.QDialog, AutoUI):
         players = self.get_field_value("Players", default=0)
         decimals = self.get_field_value("Decimals", default=0)
         stack = self.get_field_value("Stack", default=0)
+        ko = self.get_field_value("KO", default=-1)
 
         stack_ok = stack > 0
+        ko_ok = ko >= 0
         sb_ok = 0 <= sb <= bb
         bb_ok = bb > 0
         straddle_ok = (
@@ -185,7 +188,18 @@ class NewHandDialog(QtWidgets.QDialog, AutoUI):
         decimals_ok = decimals >= 0
 
         self.ok_button.setEnabled(
-            all((stack_ok, sb_ok, bb_ok, straddle_ok, ante_ok, players_ok, decimals_ok))
+            all(
+                (
+                    stack_ok,
+                    sb_ok,
+                    bb_ok,
+                    straddle_ok,
+                    ante_ok,
+                    players_ok,
+                    decimals_ok,
+                    ko_ok,
+                )
+            )
         )
 
 
@@ -216,6 +230,10 @@ class StackDialog(QtWidgets.QDialog, AutoUI):
 
     def get_value(self):
         return decimal_conversion(self.widgets["lineEdit"].text())
+
+
+class KODialog(StackDialog):
+    """Edit the KO (bounty) of one player; same widget as the stack dialog."""
 
 
 class ActionWidget(QtWidgets.QWidget, AutoUI):

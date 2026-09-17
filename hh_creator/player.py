@@ -8,7 +8,7 @@ from . import config, hh
 from .animations import Animations
 from .card import CardItem
 from .dialog import ActionWidget
-from .text import NameItem, StackItem, TextItem
+from .text import KOBadge, NameItem, StackItem, TextItem
 from .util import Image
 
 
@@ -30,6 +30,8 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
         self.action_widget = ActionWidget(self, None)
         self.stack_item = StackItem()
         self.name_item = NameItem(weight=75, point_size=20)
+        self.ko_item = KOBadge()
+        self.ko_item.setVisible(False)
 
         self._adjust_positions()
         self._place_cards()
@@ -43,6 +45,7 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
         self.addToGroup(self.seat_item)
         self.addToGroup(self.name_item)
         self.addToGroup(self.stack_item)
+        self.addToGroup(self.ko_item)
         self.addToGroup(self.action_widget_item)
 
     def __repr__(self) -> str:
@@ -80,6 +83,25 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
         for i, card in enumerate(self.card_items):
             card.setPos(seat_rect.width() / 2 - cards_width / 2 + 60 * i, -91)
             card.setVisible(i < self.n_cards)
+        self.update_ko_anchor()
+
+    def update_ko_anchor(self) -> None:
+        """Put the KO badge beside the cards, on the outer side of the table
+        (left for seats on the left half, right otherwise) so that it never
+        collides with the bet amounts, which sit on the inner side."""
+        seat_rect = self.seat_item.boundingRect()
+        cards_width = self.card_items[0].boundingRect().width() + 60 * (
+            self.n_cards - 1
+        )
+        center_x = self.pos().x() + seat_rect.width() / 2
+        if center_x < 960:
+            self.ko_item.set_anchor(
+                seat_rect.width() / 2 - cards_width / 2, -91, "left"
+            )
+        else:
+            self.ko_item.set_anchor(
+                seat_rect.width() / 2 + cards_width / 2, -91, "right"
+            )
 
     def _adjust_positions(self) -> None:
         log.debug("Positioning player items")
@@ -122,6 +144,7 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
         self.name_item.content = ""
         self.hh_position = None
         self.stack_item.stack = 0
+        self.ko_item.ko = 0
         self.action_widget_item.setVisible(False)
         self.addToGroup(self.action_widget_item)
 
@@ -251,6 +274,9 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
         main_window = self.scene().parent()
         if main_window.state == main_window.State.INIT:
+            if self._identify_item(event) is self.ko_item and self.active:
+                self.ko_item.mousePressEvent(event)
+                return
             if event.button() == QtCore.Qt.MiddleButton:
                 self.active = not self.active
                 if self.has_button:
