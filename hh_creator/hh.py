@@ -105,8 +105,8 @@ class Action:
     street: Street | None = None
     player: Union["Player", None] = None
     action_type: ActionType | None = None
-    amount: Decimal = Decimal("0")
-    added_to_pot: Decimal = Decimal("0")
+    amount: Decimal = Decimal(0)
+    added_to_pot: Decimal = Decimal(0)
 
 
 @dataclass
@@ -114,7 +114,7 @@ class Player:
     position: Position
     hand_history: "HandHistory"
     actions: list[Action] = field(default_factory=list)
-    stack: Decimal = Decimal("100")
+    stack: Decimal = Decimal(100)
 
     def __post_init__(self):
         self.initial_stack = self.stack
@@ -167,6 +167,9 @@ class Player:
     def invested_in_pot(self):
         return sum(a.added_to_pot for a in self.actions)
 
+    def is_all_in(self) -> bool:
+        return self.invested_in_pot() == self.initial_stack
+
     @property
     def last_action(self):
         if self.actions:
@@ -200,7 +203,7 @@ class HandHistory:
 
         self.current_street = Street.ANTE
         self.current_player: Player | None = None
-        self.total_pot = Decimal("0")
+        self.total_pot = Decimal(0)
 
         self._blinds_posted = False
 
@@ -344,6 +347,12 @@ class HandHistory:
     def last_action(self) -> Action | None:
         if self.actions:
             return self.actions[-1]
+
+    @property
+    def last_non_fold_action(self) -> Action | None:
+        for action in reversed(self.actions):
+            if action.action_type != ActionType.FOLD:
+                return action
 
     def possible_action_types(self):
         player = self.current_player
@@ -544,7 +553,7 @@ class HandHistory:
         return json.loads(self.to_json(), object_hook=json_hook)
 
     @classmethod
-    def from_json(cls, string):
+    def from_json(cls, string) -> "HandHistory":
         obj = json.loads(string, object_hook=json_hook)
         return cls.from_dict(obj)
 
@@ -552,15 +561,27 @@ class HandHistory:
         # used by replayer to delay apparition of turn and river
         if self.last_action is None:
             return 0
-        if self.last_action.action_type == ActionType.FOLD:
+        if self.went_to_showdown:
+            last_non_fold_action = self.last_non_fold_action
+            if (
+                last_non_fold_action is not None
+                and last_non_fold_action.street == Street.PRE_FLOP
+            ):
+                x = 1
+            else:
+                x = 0
+            return Street.RIVER - self.last_action.street + x
+        else:
             return 0
-        return Street.RIVER - self.last_action.street
 
     def play_length(self):
         return 1 + len(self.editable_actions()) + self.n_pseudo_actions()
 
     @property
     def went_to_showdown(self) -> bool:
+        for p in self.players:
+            if p.is_all_in():
+                return True
         if self.last_action:
             return self.last_action.action_type != ActionType.FOLD
         return False

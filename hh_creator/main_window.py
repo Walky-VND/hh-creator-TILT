@@ -2,14 +2,12 @@ import json
 import logging
 from functools import partial
 from pathlib import Path
+from typing import ClassVar
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QTimer, pyqtSlot
-from PyQt5.QtWidgets import (
-    QDialog,
-    QMessageBox,
-    QVBoxLayout,
-)
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QDialog, QMessageBox, QShortcut, QVBoxLayout
 
 from . import config
 from .animations import Animations
@@ -33,7 +31,7 @@ class MainWindow(QtWidgets.QMainWindow, AutoUI):
         WAIT_FOR_TURN = 11
         WAIT_FOR_RIVER = 12
 
-    STATUS_MESSAGES = {
+    STATUS_MESSAGES: ClassVar = {
         State.LAUNCH: "",
         State.INIT: "Clic gauche: choisir bouton, "
         "clic droit: modifier stack, "
@@ -77,6 +75,16 @@ class MainWindow(QtWidgets.QMainWindow, AutoUI):
         self.update_background()
         if show_new_hh_dialog:
             self.on_actionNew_triggered()
+
+        QShortcut(QKeySequence(Qt.Key.Key_Right), self).activated.connect(
+            self.on_pushButtonNext_clicked
+        )
+        QShortcut(QKeySequence(Qt.Key.Key_Left), self).activated.connect(
+            self.on_pushButtonBack_clicked
+        )
+        QShortcut(QKeySequence(Qt.Key.Key_Home), self).activated.connect(
+            self.on_pushButtonStart_clicked
+        )
 
     def _make_table_scene(self) -> None:
         table_scene = TableScene(self)
@@ -182,9 +190,7 @@ class MainWindow(QtWidgets.QMainWindow, AutoUI):
 
             self.scene.n_seats = dialog.get_field_value("Players")
 
-            self.scene.set_all_stacks(
-                dialog.get_field_value("Stack") * dialog.get_field_value("BB")
-            )
+            self.scene.set_all_stacks(dialog.get_field_value("Stack"))
 
             self.scene.set_n_cards(dialog.get_n_cards())
             self.scene.ko_enabled = dialog._get_checkbox("KO").isChecked()
@@ -471,7 +477,7 @@ class MainWindow(QtWidgets.QMainWindow, AutoUI):
             config.config["behavior"].get("default_path"),
             "Fichiers HH (*.hh)",
         )
-        filename, selected_filter = result
+        filename, _selected_filter = result
         if filename:
             self.current_filename = filename
             self.findChild(QtWidgets.QAction, "actionSave").setEnabled(True)
@@ -487,7 +493,7 @@ class MainWindow(QtWidgets.QMainWindow, AutoUI):
             config.config["behavior"].get("default_path"),
             "Fichiers HH (*.hh)",
         )
-        filename, selected_filter = result
+        filename, _selected_filter = result
         if filename:
             self.current_filename = filename
             self.findChild(QtWidgets.QAction, "actionSave").setEnabled(True)

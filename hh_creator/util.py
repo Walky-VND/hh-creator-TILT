@@ -4,7 +4,7 @@ from enum import Enum
 from functools import cache, total_ordering
 from pathlib import Path
 
-from PyQt5 import Qt, QtGui, QtWidgets, uic
+from PyQt5 import Qt, QtCore, QtGui, QtWidgets, uic
 
 from .config import RESOURCE_PATH
 from .poker_enum import PokerEnum
@@ -119,9 +119,9 @@ def decimal_conversion(text):
     if isinstance(text, Decimal):
         return text
     try:
-        return Decimal(text.replace(",", "."))
+        return Decimal(text.replace(",", ".").replace(" ", "").replace("\u202f", ""))
     except InvalidOperation:
-        log.warning(f"Error converting {text} to decimal, returning 0")
+        log.warning(f"Error converting {text!r} to decimal, returning 0")
         return Decimal(0)
 
 
@@ -149,11 +149,20 @@ def amount_format(x, n_decimals=3):
     if not isinstance(x, Decimal):
         x = Decimal(str(x))  # Convert to Decimal to avoid precision issues
 
+    if x >= 1_000_000:
+        suffix = "M"
+        x /= 1_000_000
+    elif x >= 1_000:
+        suffix = "k"
+        x /= 1_000
+    else:
+        suffix = ""
+
     x = round(x, n_decimals)
 
     # Normalize the number by removing trailing zeroes.
     # "f" prevents scientific notation.
-    return format(x.normalize(), "f")
+    return format(x.normalize(), ",f").replace(",", " ") + suffix
 
 
 BLINDS = [ActionType.SB, ActionType.BB, ActionType.STRADDLE]
@@ -164,10 +173,12 @@ def init_sounds() -> None:
     # ImportError: libpulse-mainloop-glib.so.0: cannot open shared object file: No such file or directory
     from PyQt5 import QtMultimedia
 
-    _sounds = {
-        f.stem: QtMultimedia.QSound(str(f))
-        for f in (RESOURCE_PATH / "sounds").glob("*.wav")
-    }
+    _sounds = {}
+    for f in (RESOURCE_PATH / "sounds").glob("*.wav"):
+        sound = QtMultimedia.QSoundEffect()
+        sound.setSource(QtCore.QUrl.fromLocalFile(str(f)))
+        sound.setVolume(0.25 if f.stem in {"bet", "check"} else 0.34)
+        _sounds[f.stem] = sound
 
     sounds.update(
         {

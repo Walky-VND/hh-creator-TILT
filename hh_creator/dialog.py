@@ -2,9 +2,10 @@ import logging
 import typing
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import ClassVar
 
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import pyqtSlot, QLocale
+from PyQt5.QtCore import QLocale, pyqtSlot
 
 from . import config, hh
 from .util import AutoUI, amount_validator, decimal_conversion
@@ -22,7 +23,7 @@ class Field:
 
 
 class NewHandDialog(QtWidgets.QDialog, AutoUI):
-    FIELDS = {
+    FIELDS: ClassVar = {
         "SB": Field(Decimal, True),
         "BB": Field(Decimal, False),
         "Straddle": Field(int, True),
@@ -37,7 +38,7 @@ class NewHandDialog(QtWidgets.QDialog, AutoUI):
         "KO": Field(Decimal, True),
     }
 
-    N_CARDS = {"Texas": 2, "Omaha": 4}
+    N_CARDS: ClassVar = {"Texas": 2, "Omaha": 4}
 
     def __init__(self, *a, **kw) -> None:
         super().__init__(*a, **kw)
@@ -96,7 +97,7 @@ class NewHandDialog(QtWidgets.QDialog, AutoUI):
 
         try:
             return field.type(text)
-        except Exception:
+        except Exception:  # noqa
             log.warning(f"Conversion error from {text} for {field.type}")
             return default
 
@@ -243,6 +244,7 @@ class ActionWidget(QtWidgets.QWidget, AutoUI):
         self.slider: QtWidgets.QSlider = self.widgets["horizontalSlider"]
         self.slider_values = []
         self.player_item = player_item
+        self.hh = None
 
     def set_min_max_step(self, min_, max_, step) -> None:
         values = [min_]
@@ -258,7 +260,8 @@ class ActionWidget(QtWidgets.QWidget, AutoUI):
         self.slider_values = values
         self.widgets["lineEdit"].setText(str(min_))
 
-    def set_possible_actions(self, action_types) -> None:
+    def set_possible_actions(self, action_types, hand_history) -> None:
+        self.hh = hand_history
         self.widgets["call"].setEnabled(hh.ActionType.CALL in action_types)
         self.widgets["check"].setEnabled(hh.ActionType.CHECK in action_types)
         bet = hh.ActionType.BET in action_types or hh.ActionType.RAISE in action_types
@@ -314,7 +317,9 @@ class ActionWidget(QtWidgets.QWidget, AutoUI):
 
     @pyqtSlot()
     def on_bet_clicked(self) -> None:
-        self.player_item.add_action(hh.ActionType.BET, self.amount())
+        self.player_item.add_action(
+            hh.ActionType.BET, self.amount() - self.hh.current_player_street_bet()
+        )
 
     @pyqtSlot()
     def on_fold_clicked(self) -> None:

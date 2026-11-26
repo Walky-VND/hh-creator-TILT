@@ -163,7 +163,6 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
             scene=self.scene(),
             callbacks=[lambda: setattr(self.bet_item, "content", street_bet_amount)],
             target_font=True,
-            target_item_center=target is not self.bet_item,
             font_kwargs={"color": "yellow"},
         )
 
@@ -222,7 +221,7 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
             min_bet = hand_history.largest_blind
         max_bet = self.stack_item.stack + hand_history.current_player_street_bet()
         self.action_widget.set_min_max_step(min_bet, max_bet, hand_history.small_blind)
-        self.action_widget.set_possible_actions(possible)
+        self.action_widget.set_possible_actions(possible, hand_history)
         self.action_widget_item.setVisible(True)
 
     def add_action(self, action_type, amount=Decimal(0)) -> None:
@@ -250,14 +249,11 @@ class PlayerItemGroup(QtWidgets.QGraphicsItemGroup):
         if adjust:
             # The widget expresses a raise as the player's TOTAL bet on the
             # street ("raise to X"). The engine wants the increment above the
-            # call, so subtract both what the player already has in front of
-            # them this street and the amount still to call. Forgetting the
-            # street bet made a 3-bettor's shove exceed their stack (crash).
-            new_amount = (
-                amount
-                - hand_history.current_player_street_bet()
-                - hand_history.current_player_amount_to_call()
-            )
+            # call. ActionWidget.on_bet_clicked (dialog.py) already subtracts
+            # what the player has in front of them this street, so only the
+            # amount still to call is removed here. Subtracting the street bet
+            # in both places would under-size every re-raise.
+            new_amount = amount - hand_history.current_player_amount_to_call()
             log.debug(f"Requested bet {amount}, transforming it to raise {new_amount}")
             amount = new_amount
         try:

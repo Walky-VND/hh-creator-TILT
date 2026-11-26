@@ -4,6 +4,8 @@ from pathlib import Path
 
 from PyQt5 import Qt, QtGui, QtWidgets
 
+from hh_creator.hh import Player
+
 from . import config, hh
 from .animations import Animations
 from .card import CardItem, Rank, Suit, get_winners
@@ -119,9 +121,9 @@ class TableScene(QtWidgets.QGraphicsScene):
         items.extend(p.stack_item.stack_item for p in self.player_items)
         items.extend(p.bet_item for p in self.player_items)
         for i in items:
-            setattr(i, "content", getattr(i, "content"))
-            setattr(i, "currency", self._currency)
-            setattr(i, "currency_is_after", self._currency_is_after)
+            i.content = i.content
+            i.currency = self._currency
+            i.currency_is_after = self._currency_is_after
 
     def _get_highlight_effect(self) -> None:
         highlight_effect = QtWidgets.QGraphicsDropShadowEffect()
@@ -137,8 +139,7 @@ class TableScene(QtWidgets.QGraphicsScene):
         for p in self.active_players():
             if p.hh_position == position:
                 return p
-        else:
-            raise ValueError(f"{position} not found in {self.player_items}")
+        raise ValueError(f"{position} not found in {self.player_items}")
 
     def _create_background(self) -> None:
         table_item = Image.get(Path("table") / config.config["look"].get("table"))
@@ -162,6 +163,7 @@ class TableScene(QtWidgets.QGraphicsScene):
         self.addItem(background)
         self.resize_table()
         self.addItem(table_item)
+        self.setBackgroundBrush(_edge_color(background.pixmap().toImage()))
 
     @staticmethod
     def _create_table_shadow() -> QtWidgets.QGraphicsDropShadowEffect:
@@ -261,7 +263,6 @@ class TableScene(QtWidgets.QGraphicsScene):
     def mouseDoubleClickEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
         # TODO: replace this with full screen
         print(event.scenePos())
-        pass
 
     @property
     def currency(self):
@@ -420,7 +421,7 @@ class TableScene(QtWidgets.QGraphicsScene):
     def active_seats_idx(self):
         return [i for i, p in enumerate(self.player_items) if p.active]
 
-    def get_active_players_after_button(self):
+    def get_active_players_after_button(self) -> list[Player]:
         players = list(self.active_players())
         for i, p in enumerate(players):
             if p.has_button:
@@ -488,7 +489,6 @@ class TableScene(QtWidgets.QGraphicsScene):
                         "BETS_TO_POT_ANIMATION_DURATION"
                     ),
                     scene=self,
-                    target_item_center=True,
                 )
 
             pot_item.content = side_pot.amount
@@ -529,7 +529,7 @@ class TableScene(QtWidgets.QGraphicsScene):
             lambda: setattr(
                 player_item.stack_item,
                 "stack",
-                total + getattr(player_item.stack_item, "stack"),
+                total + player_item.stack_item.stack,
             )
         )
 
@@ -790,6 +790,29 @@ class TableScene(QtWidgets.QGraphicsScene):
     def show_all_active_players_cards(self) -> None:
         for p in self.active_players():
             p.show_cards()
+
+
+def _edge_color(image: QtGui.QImage) -> QtGui.QColor:
+    w, h = image.width(), image.height()
+    step_x = max(1, w // 50)
+    step_y = max(1, h // 50)
+
+    points = (
+        [(x, 0) for x in range(0, w, step_x)]
+        + [(x, h - 1) for x in range(0, w, step_x)]
+        + [(0, y) for y in range(0, h, step_y)]
+        + [(w - 1, y) for y in range(0, h, step_y)]
+    )
+
+    r = g = b = 0
+    for x, y in points:
+        c = image.pixelColor(x, y)
+        r += c.red()
+        g += c.green()
+        b += c.blue()
+
+    n = len(points)
+    return QtGui.QColor(r // n, g // n, b // n)
 
 
 log = logging.getLogger(__name__)
